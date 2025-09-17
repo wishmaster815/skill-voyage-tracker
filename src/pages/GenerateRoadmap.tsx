@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Brain, ArrowLeft, Sparkles, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 const GenerateRoadmap = () => {
@@ -14,6 +14,12 @@ const GenerateRoadmap = () => {
   const [duration, setDuration] = useState("");
   const [knownSkills, setKnownSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const navigate = useNavigate();
+
+  const userStr = localStorage.getItem("user");
+  const user = userStr ? JSON.parse(userStr) : null;
 
   const addSkill = () => {
     if (newSkill.trim() && !knownSkills.includes(newSkill.trim())) {
@@ -23,13 +29,45 @@ const GenerateRoadmap = () => {
   };
 
   const removeSkill = (skill: string) => {
-    setKnownSkills(knownSkills.filter(s => s !== skill));
+    setKnownSkills(knownSkills.filter((s) => s !== skill));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Note: This will need Supabase integration for AI roadmap generation
-    alert("Roadmap generation requires Supabase integration with AI capabilities. Please connect to Supabase first!");
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:8000/roadmap/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: user.username,
+          role: skillName,
+          level: currentLevel,
+          skills: knownSkills,
+          duration: duration,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate roadmap");
+      }
+
+      const data = await res.json();
+      console.log("Generated Roadmap:", data);
+
+      // after generation redirect to roadmap page
+      navigate("/roadmap");
+    } catch (err) {
+      console.error(err);
+      alert("Error generating roadmap. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,7 +75,10 @@ const GenerateRoadmap = () => {
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/dashboard" className="flex items-center space-x-2 text-primary hover:scale-105 transition-transform">
+          <Link
+            to="/dashboard"
+            className="flex items-center space-x-2 text-primary hover:scale-105 transition-transform"
+          >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Dashboard</span>
           </Link>
@@ -79,7 +120,6 @@ const GenerateRoadmap = () => {
                     value={skillName}
                     onChange={(e) => setSkillName(e.target.value)}
                     required
-                    className="border-card-border focus:border-primary"
                   />
                 </div>
 
@@ -87,7 +127,7 @@ const GenerateRoadmap = () => {
                 <div className="space-y-2">
                   <Label htmlFor="level">What's your current level?</Label>
                   <Select value={currentLevel} onValueChange={setCurrentLevel} required>
-                    <SelectTrigger className="border-card-border focus:border-primary">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select your experience level" />
                     </SelectTrigger>
                     <SelectContent>
@@ -102,7 +142,7 @@ const GenerateRoadmap = () => {
                 <div className="space-y-2">
                   <Label htmlFor="duration">How long do you want to spend learning?</Label>
                   <Select value={duration} onValueChange={setDuration} required>
-                    <SelectTrigger className="border-card-border focus:border-primary">
+                    <SelectTrigger>
                       <SelectValue placeholder="Select learning duration" />
                     </SelectTrigger>
                     <SelectContent>
@@ -117,22 +157,18 @@ const GenerateRoadmap = () => {
                 {/* Known Skills */}
                 <div className="space-y-2">
                   <Label>What skills do you already know?</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Add any related skills or experience you have
-                  </p>
                   <div className="flex space-x-2">
                     <Input
                       placeholder="e.g., JavaScript, HTML, CSS"
                       value={newSkill}
                       onChange={(e) => setNewSkill(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
-                      className="border-card-border focus:border-primary"
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
                     />
                     <Button type="button" variant="outline" onClick={addSkill}>
                       Add
                     </Button>
                   </div>
-                  
+
                   {knownSkills.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
                       {knownSkills.map((skill) => (
@@ -151,48 +187,25 @@ const GenerateRoadmap = () => {
                   )}
                 </div>
 
-                <Button type="submit" variant="hero" size="lg" className="w-full group">
-                  <Sparkles className="mr-2 h-5 w-5" />
-                  Generate My Roadmap
+                <Button
+                  type="submit"
+                  variant="hero"
+                  size="lg"
+                  className="w-full group"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    "Generating..."
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Generate My Roadmap
+                    </>
+                  )}
                 </Button>
               </form>
             </CardContent>
           </Card>
-
-          {/* Info Cards */}
-          <div className="grid md:grid-cols-2 gap-4 mt-8">
-            <Card className="border-card-border">
-              <CardContent className="pt-6">
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Brain className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">AI-Powered</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Our AI analyzes your input to create the most effective learning path
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-card-border">
-              <CardContent className="pt-6">
-                <div className="flex items-start space-x-3">
-                  <div className="p-2 bg-success/10 rounded-lg">
-                    <Sparkles className="h-5 w-5 text-success" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">Personalized</h3>
-                    <p className="text-xs text-muted-foreground">
-                      Every roadmap is tailored to your specific experience and goals
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
     </div>

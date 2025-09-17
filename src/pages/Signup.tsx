@@ -1,15 +1,53 @@
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Brain, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
 
 const Signup = () => {
-  const handleSignup = (e: React.FormEvent) => {
+  const navigate = useNavigate();
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Note: This will need Supabase integration for actual authentication
-    alert("Signup functionality requires Supabase integration. Please connect to Supabase first!");
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://localhost:8000/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username,   // backend expects username
+          email,
+          password,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert(errorData.detail || "Signup failed");
+        setLoading(false);
+        return;
+      }
+
+      const data = await response.json();
+
+      // Save user in localStorage
+      localStorage.setItem("user", JSON.stringify(data));
+
+      // Redirect to dashboard
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("Signup error:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,11 +75,13 @@ const Signup = () => {
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="name"
+                  id="username"
                   type="text"
-                  placeholder="Your full name"
+                  placeholder="Choose a username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
                   className="border-card-border focus:border-primary"
                 />
@@ -52,6 +92,8 @@ const Signup = () => {
                   id="email"
                   type="email"
                   placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="border-card-border focus:border-primary"
                 />
@@ -62,12 +104,14 @@ const Signup = () => {
                   id="password"
                   type="password"
                   placeholder="Create a strong password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   className="border-card-border focus:border-primary"
                 />
               </div>
-              <Button type="submit" variant="hero" className="w-full">
-                Create Account
+              <Button type="submit" variant="hero" className="w-full" disabled={loading}>
+                {loading ? "Creating Account..." : "Create Account"}
               </Button>
             </form>
             

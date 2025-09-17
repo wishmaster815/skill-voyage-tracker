@@ -1,15 +1,51 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Brain, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+
+const API_BASE = "http://127.0.0.1:8000"; // later use env var
 
 const Login = () => {
-  const handleLogin = (e: React.FormEvent) => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Note: This will need Supabase integration for actual authentication
-    alert("Login functionality requires Supabase integration. Please connect to Supabase first!");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/users/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || "Login failed");
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      console.log("Login successful:", data);
+
+      // ✅ Store user info in localStorage (or context)
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // redirect to dashboard
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      alert("Something went wrong, check console.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,7 +60,7 @@ const Login = () => {
             <Brain className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold">Birjuram.ai</span>
           </div>
-          <p className="text-muted-foreground">Welcome back to your learning journey</p>
+          <p className="text-muted-foreground">Welcome to your learning journey</p>
         </div>
 
         <Card className="shadow-elegant border-card-border">
@@ -41,6 +77,8 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
                   className="border-card-border focus:border-primary"
@@ -51,13 +89,15 @@ const Login = () => {
                 <Input
                   id="password"
                   type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   required
                   className="border-card-border focus:border-primary"
                 />
               </div>
-              <Button type="submit" variant="hero" className="w-full">
-                Sign In
+              <Button type="submit" variant="hero" className="w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
             
